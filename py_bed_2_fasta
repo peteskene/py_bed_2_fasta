@@ -1,0 +1,57 @@
+import pybedtools
+from pybedtools import BedTool
+from pybedtools import featurefuncs
+#set tmp dir
+pybedtools.set_tempdir('/loc/scratch/pskene')
+
+def py_bed_2_fasta(bedfile, fasta_filename, option_bed_filename=None, extend_from_midpoint=True, distance_to_extend=150, species='hg19', stranded=False,
+                whole_genome_fasta_file='/shared/biodata/ngs/Reference/iGenomes/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa'):
+    '''
+     written by peteskene@gmail.com
+     
+     (1) takes in a bed file (can have any number of columns, if stranded=True, expects strand in col 6).
+             - optionally finds midpoint and extends features (requires chr_sizes file found from species string)
+             - optionally just extends each feature (requires chr_sizes file found from species string)
+             - optionally saves this bed file to option_bed_filename (won't save if None; provide as string; can provide path)
+             
+     (2) extract sequence data as a fasta file (requires path to whole_genome_fasta_file; entered as a string)
+         fasta file has no text wrapping (i.e. entire sequence for an id is on one line)
+         
+         if stranded=True: Force strandedness. If the feature occupies the antisense strand,
+         the sequence will be reverse complemented. By default (False), strand information is ignored.
+         
+     (3) saves fasta file to fasta_filename (provide as string)
+    
+    '''
+    
+    temp_bed = BedTool(bedfile)
+    
+    print 'bedfile imported: ' + bedfile
+    print 
+    
+    if extend_from_midpoint==True:
+        if distance_to_extend==None:
+            return 'Exiting... extend_from midpoint set to True but no distance specified'
+        temp_bed = temp_bed.each(featurefuncs.midpoint).slop(genome=species, b=distance_to_extend)
+        print 'Found midpoint of each feature and extended symmetrically'
+        
+    if extend_from_midpoint==False:
+        if distance_to_extend!=None:
+            temp_bed = temp_bed.slop(genome=species, b=distance_to_extend)
+            print 'Extended symmetrically from ends of supplied bedfile'
+            
+    if option_bed_filename!=None:
+        temp_bed.save_as(option_bed_filename)
+        print 'extended bed file saved to: ' + option_bed_filename
+            
+    print
+    print 'Extracting sequence data for # of features: ' + str(temp_bed.count())
+    
+    #find sequence data
+    temp_file = temp_bed.sequence(fi=whole_genome_fasta_file)
+    
+    #save fasta file to fasta_filename
+    temp_file_2 = temp_file.save_seqs(fasta_filename)
+    
+
+    return 'Done'
